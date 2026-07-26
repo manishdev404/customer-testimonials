@@ -2,8 +2,9 @@ node_modules
 dist
 *.log
 
-# SQLite database files — recreated on boot from the schema + seed.
-data/
+# Runtime database files at the backend root. Anchored with a leading slash —
+# an unanchored `data/` also matches src/data/, which holds tracked source.
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
