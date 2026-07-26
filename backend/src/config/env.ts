@@ -6,9 +6,22 @@ import 'dotenv/config';
  * first request that happens to need a value.
  */
 
+/**
+ * dotenv strips the quotes its file syntax requires, but hosting dashboards
+ * store what you paste verbatim — so pasting a .env into one leaves the quotes
+ * embedded in the value. Normalising here means a quoted CORS_ORIGINS fails
+ * loudly at boot rather than silently 403-ing every browser request.
+ */
+function unquote(value: string): string {
+  return value.length > 1 && /^(".*"|'.*')$/s.test(value) ? value.slice(1, -1) : value;
+}
+
 function readString(key: string, fallback: string): string {
   const value = process.env[key];
-  return value === undefined || value.trim() === '' ? fallback : value.trim();
+  if (value === undefined) return fallback;
+
+  const unquoted = unquote(value.trim()).trim();
+  return unquoted === '' ? fallback : unquoted;
 }
 
 function readRequired(key: string): string {
@@ -44,16 +57,9 @@ function readBoolean(key: string, fallback: boolean): boolean {
  * `cert()` rejects the key otherwise.
  */
 function readPrivateKey(): string {
-  let raw = readRequired('FIREBASE_PRIVATE_KEY');
-
-  // .env syntax needs the value wrapped in quotes, and dashboards like Render
-  // store what you paste verbatim — so the quotes survive into process.env and
-  // corrupt the PEM. cert() then fails with an opaque DECODER error.
-  if (raw.length > 1 && /^(".*"|'.*')$/s.test(raw)) {
-    raw = raw.slice(1, -1);
-  }
-
-  const key = raw.replace(/\\n/g, '\n').trim();
+  // readRequired has already stripped any wrapping quotes; without that,
+  // cert() fails here with an opaque DECODER error.
+  const key = readRequired('FIREBASE_PRIVATE_KEY').replace(/\\n/g, '\n').trim();
 
   if (!key.includes('BEGIN PRIVATE KEY') || !key.includes('END PRIVATE KEY')) {
     throw new Error(
