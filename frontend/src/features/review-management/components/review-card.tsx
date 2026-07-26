@@ -86,10 +86,11 @@ export function ReviewCard({ review, busy, onModerate, onViewDetails }: ReviewCa
         <Button
           variant="success"
           size="sm"
+          className="min-w-0 px-2 sm:px-3"
           disabled={!canApprove || busy}
           loading={busy}
           onClick={() => onModerate(review, 'approved')}
-          leftIcon={<Check className="h-3.5 w-3.5" aria-hidden="true" />}
+          leftIcon={<Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
         >
           {review.status === 'approved' ? 'Approved' : 'Approve'}
         </Button>
@@ -97,9 +98,10 @@ export function ReviewCard({ review, busy, onModerate, onViewDetails }: ReviewCa
         <Button
           variant="danger"
           size="sm"
+          className="min-w-0 px-2 sm:px-3"
           disabled={!canReject || busy}
           onClick={() => onModerate(review, 'rejected')}
-          leftIcon={<X className="h-3.5 w-3.5" aria-hidden="true" />}
+          leftIcon={<X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
         >
           {review.status === 'rejected' ? 'Rejected' : 'Reject'}
         </Button>
@@ -107,9 +109,9 @@ export function ReviewCard({ review, busy, onModerate, onViewDetails }: ReviewCa
         <Button
           variant="ghost"
           size="sm"
-          className="sm:ml-auto"
+          className="min-w-0 px-2 sm:ml-auto sm:px-3"
           onClick={() => onViewDetails(review)}
-          leftIcon={<Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+          leftIcon={<Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
         >
           <span className="sm:hidden">Details</span>
           <span className="hidden sm:inline">View details</span>

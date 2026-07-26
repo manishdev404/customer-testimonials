@@ -84,7 +84,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ) : (
         leftIcon
       )}
-      {children}
+      {/* min-w-0 lets a long label truncate rather than overflow a narrow cell. */}
+      <span className="min-w-0 truncate">{children}</span>
       {!loading && rightIcon}
     </button>
   );
