@@ -1,0 +1,57 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys the Express API only; the Next.js frontend is not covered here.
+# Every `sync: false` value is a secret: Render prompts for it when the
+# blueprint is applied and never reads it from git.
+
+services:
+  - type: web
+    name: testify-api
+    runtime: node
+    plan: free
+    rootDir: backend
+
+    # TypeScript lives in devDependencies and Render sets NODE_ENV=production
+    # for Node services, which makes a plain `npm ci` skip them — `tsc` would
+    # then be missing at build time. --include=dev pulls them in regardless.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+
+    # Bootstrap verifies Firestore and the image store before the port opens,
+    # so a failing health check here means a bad credential, not a slow start.
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+
+      # PORT is injected by Render — deliberately not declared. config/env.ts
+      # reads it and falls back to 4000 only for local runs.
+
+      # Comma-separated origins allowed to call this API; set to the deployed
+      # frontend URL. A wrong value surfaces as a CORS 403, not a crash.
+      - key: CORS_ORIGINS
+        sync: false
+
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      # Paste the PEM with its literal \n escapes intact — readPrivateKey()
+      # converts them back to real newlines before cert() sees the key.
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      # Optional; defaults to <FIREBASE_PROJECT_ID>.firebasestorage.app.
+      # Without a Blaze-plan bucket the API falls back to inline images.
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+
+      # Optional. Leave unset to use the built-in heuristic analyser instead.
+      - key: GROQ_API_KEY
+        sync: false
+
+      # Seeds demo testimonials, and only when the collection is empty.
+      - key: SEED_ON_EMPTY
+        value: "true"
