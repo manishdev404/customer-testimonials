@@ -8,6 +8,24 @@ testimonials never reach the wall.
 
 ---
 
+## Live demo
+
+| Page                  | URL                                                              |
+| --------------------- | ---------------------------------------------------------------- |
+| Public wall           | https://customer-testimonials-rouge.vercel.app/testimonials       |
+| Submission form       | https://customer-testimonials-rouge.vercel.app/write-review       |
+| Moderation dashboard  | https://customer-testimonials-rouge.vercel.app/reviews            |
+| API health            | https://customer-testimonials.onrender.com/health                 |
+
+Frontend on Vercel, Express API on Render, data in Firestore — the deployed frontend talks to the
+deployed API, not to the bundled fallback routes.
+
+> **First request is slow.** Render's free tier sleeps a service after ~15 minutes of inactivity,
+> so the first page load can hang for 20–50 seconds while the API cold-starts. Everything after
+> that is fast. Hitting `/health` first wakes it up.
+
+---
+
 ## Stack
 
 | Layer    | Choice                                                                    |
