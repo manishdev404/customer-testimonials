@@ -89,23 +89,124 @@ inside an admin sidebar would misrepresent it. It has its own header, footer and
 
 ## 3. Working with AI agents
 
-> **Yours to write.** Notes on what to cover:
+**Tools and models.** Claude Code (CLI) on Claude Opus, for the whole build. No other agent or
+editor — no Cursor, Cline, Copilot or aider — and no second model provider. Groq appears in the
+product as a runtime dependency for the sentiment feature; it was not used to write any code.
 
-- **Tools and models used:** which agent/editor, which models, for what kind of work.
-- **How you split the work:** what you delegated vs. kept, and why.
-- **Your agent setup:** `CLAUDE.md` is committed at the repo root — describe what problem each rule
-  in it was written to solve. (It encodes the banned libraries, the layering, the response-envelope
-  invariant, and the gotchas that actually bit during the build.)
-- **Your 3–5 most important prompts:** paste them verbatim and say why each worked or didn't.
-- **At least one time AI was wrong.** Two real candidates from this build, if they match your
-  recollection:
-  - `firestore.settings()` was called on every `getFirestore()` access. It typechecked and looked
-    fine; the server crashed on boot with *"Firestore has already been initialized."* Caught by
-    actually starting the process, not by review.
-  - The CORS rejection path passed a plain `Error` to the `cors` callback, which surfaced as a
-    **500** and got logged as an unhandled bug. A disallowed origin is an expected client condition
-    and should be a **403**. Caught by testing with a hostile `Origin` header.
-- **Something you rejected:** what you threw away or rewrote, and why.
+**How the work was split.** Bottom-up, one layer per task, in dependency order. The 37 commits on
+`development` are close to a literal transcript of the task list: the backend went config → logger
+and HTTP primitives → error middleware → Firestore connection → domain types and Zod schema →
+repository → insights → storage → service → routes → app wiring, and the frontend repeated the
+shape — types and constants → utils → HTTP client → service layer → stores → hooks → UI primitives
+→ shell → the three pages.
+
+Each task was scoped small enough that its diff could be read in full before the next one started.
+That was the point. A layer whose interface has been reviewed is a fixed contract for everything
+built on top of it, so the agent could not quietly redesign a foundation while working three levels
+up. The cost is a lot of small commits; the payoff is that nothing had to be unpicked later.
+
+**What was kept back from the agent:** the architecture itself — the three-layer split, the
+`{success, data}` envelope, the decision that approved-only is enforced server-side — plus the
+library bans and the product calls recorded in §2 (approve-immediate vs. reject-confirm, the wall
+rendering outside the dashboard shell). Those are the decisions this journal is being read for.
+Delegating them would have meant delegating the part that is actually being assessed.
+
+**Agent setup — `CLAUDE.md`, committed at the repo root.** Each rule in it is there because of
+something specific, not as generic advice:
+
+- *Banned libraries (Axios, Redux, MUI, Chakra, Bootstrap).* Agents reach for these by default.
+  Stating the ban once removed the need to re-litigate it on every task.
+- *The layering rule (controller → service → repository).* Without it, business logic drifts into
+  controllers — which is how the approved-only guarantee would have ended up implemented in three
+  places instead of one.
+- *"Never widen the API envelope."* The `{success, data}` shape is the whole reason the Express
+  backend and the Next.js fallback routes are interchangeable. One endpoint returning a bare array
+  silently breaks the shared HTTP client for every other endpoint.
+- *"Never let a non-approved testimonial reach a public endpoint."* The one absolute in the brief,
+  written where the agent reads it before touching a route.
+- *The gotchas section.* `firestore.settings()` may only be called once; Firestore documents cap at
+  1 MiB; Firestore cannot do substring search. Each cost real debugging time once — writing them
+  down is what kept them from costing it twice.
+
+**Where AI was wrong.** Two, both still visible in the fixes:
+
+- `firestore.settings()` was called on every `getFirestore()` access. It typechecked and read
+  perfectly well; the server died on boot with *"Firestore has already been initialized."* The fix
+  caches the instance and calls `settings()` exactly once — see the comment at `db/firebase.ts:35`.
+- The CORS rejection path passed a plain `Error` to the `cors` callback. A disallowed origin is an
+  expected client condition, but a bare `Error` fell through to the generic handler as a **500** and
+  was logged as an unhandled bug. It now passes `new HttpError(..., 403)` (`app.ts:32`).
+
+Both share a shape worth naming: the code was type-correct and survived review by reading. Only
+running it exposed the defect. That is the argument behind the verification list in §4 — a green
+`tsc` is not evidence that anything works.
+
+**The prompts that mattered.**
+
+**1. The opening spec.** One message, ~2,900 characters, that produced the entire frontend skeleton:
+
+> You are a Senior Product Designer and Senior Frontend Engineer.
+> Build a modern SaaS frontend for a Testimonial Platform.
+>
+> **Tech Stack:** Next.js (App Router) · TypeScript · Tailwind CSS · Zustand · Native fetch API ·
+> React Hook Form
+> **DO NOT use:** Axios · Redux · Material UI · Chakra · Bootstrap
+>
+> The UI should look like a modern SaaS product similar to Linear, Vercel, Notion, Stripe or Senja.
+> […followed by a page-by-page spec for all three pages, an inventory of 15 reusable components,
+> the Zustand store shape, the four API functions, and the required folder structure…]
+
+*Why it worked:* it front-loaded every constraint that would have been expensive to retrofit — the
+banned libraries, the folder layout, the store shape, the component inventory. The agent never had
+to guess, so nothing had to be unwound. Most of this prompt is now `CLAUDE.md`: the library bans and
+the folder structure were moved there verbatim, which is how the constraints survived past the
+context window that originally carried them.
+
+*Where it fell short:* naming Linear/Vercel/Stripe as references bought a clean, plausible SaaS look
+and nothing more opinionated than that. The visual identity still needed hands-on iteration.
+
+**2. `make the ui first for the mobile view`**
+
+*Why it worked:* seven words, and probably the highest-leverage prompt in the build. The first pass
+was desktop-first with breakpoints bolted on afterwards. Reversing the order changed the layout
+*decisions*, not just the CSS. Asking for this later would have meant rewriting all three pages.
+
+**3. `write git commit feature by feature not in one go small small pocket`**
+
+*Why it worked:* this is why the history is 37 dependency-ordered commits rather than one
+`initial commit` dump. It forced every layer to stand on its own and be reviewable before the next
+one was built on top of it. It is also the single reason the history is legible enough to hand to a
+reviewer — had the agent committed in one go, none of the layering above would be inspectable.
+
+**4. Pasting the raw deploy error, verbatim and with no commentary:**
+
+> `ERROR Failed to start server { message: 'Failed to parse private key: Error:`
+> `error:1E08010C:DECODER routines::unsupported' }`
+
+*Why it worked:* pasting the literal error beat describing it. That OpenSSL code is specific enough
+to identify the cause outright — a PEM whose `\n` escapes had never been converted back to real
+newlines. Paraphrasing it would have thrown away the only diagnostic detail that mattered.
+
+**Something rejected.**
+
+**The `Co-Authored-By: Claude` trailer on every commit.** The agent added it by default; I had it
+stripped. None of the 37 build commits carry it. The reasoning is the brief's own rule — I have to
+understand and defend every line I submit. This journal is where the agent's contribution gets
+described honestly and in detail; a trailer on a commit I specified, reviewed and corrected is a
+worse place to record that, because it flattens a working relationship into a byline.
+
+One exception, and it is easier to explain than to hide: a late documentation commit (`f786f2c`,
+adding the deploy URLs to the README) picked the trailer back up. I left it rather than force-push
+two already-published branches to tidy a byline on a docs commit — rewriting shared history for
+cosmetics is the worse trade.
+
+**The first fix for the Firebase private key, which I had rewritten.** The initial attempt
+(`7b98947`) handled quoting inside `readPrivateKey` only — it made the reported error go away, so it
+looked complete. It wasn't: the same quoting problem applies to *every* value pasted into a hosting
+dashboard, and a quoted `CORS_ORIGINS` silently 403'd every browser request while `/health` stayed
+green. The rewrite (`4be3526`) moved unquoting into `readString` so it covers all values, and
+deleted the now-duplicated copy. The lesson is the one worth stating: the agent fixed the symptom I
+reported, and reporting a symptom is not the same as describing the bug.
 
 ---
 
