@@ -44,15 +44,35 @@ function readBoolean(key: string, fallback: boolean): boolean {
  * `cert()` rejects the key otherwise.
  */
 function readPrivateKey(): string {
-  const raw = readRequired('FIREBASE_PRIVATE_KEY').replace(/\\n/g, '\n');
+  let raw = readRequired('FIREBASE_PRIVATE_KEY');
 
-  if (!raw.includes('BEGIN PRIVATE KEY')) {
+  // .env syntax needs the value wrapped in quotes, and dashboards like Render
+  // store what you paste verbatim — so the quotes survive into process.env and
+  // corrupt the PEM. cert() then fails with an opaque DECODER error.
+  if (raw.length > 1 && /^(".*"|'.*')$/s.test(raw)) {
+    raw = raw.slice(1, -1);
+  }
+
+  const key = raw.replace(/\\n/g, '\n').trim();
+
+  if (!key.includes('BEGIN PRIVATE KEY') || !key.includes('END PRIVATE KEY')) {
     throw new Error(
-      'FIREBASE_PRIVATE_KEY does not look like a PEM key. It must include the ' +
-        '"-----BEGIN PRIVATE KEY-----" header and be wrapped in double quotes.',
+      'FIREBASE_PRIVATE_KEY does not look like a PEM key. It must run from ' +
+        '"-----BEGIN PRIVATE KEY-----" to "-----END PRIVATE KEY-----".',
     );
   }
-  return raw;
+
+  // A single-line key decodes as garbage. Catch it here rather than letting
+  // cert() report it as an unsupported DECODER routine.
+  if (!key.includes('\n')) {
+    throw new Error(
+      'FIREBASE_PRIVATE_KEY is on one line — its newlines were lost. Paste it ' +
+        'with the literal \\n escapes intact, or as a real multi-line value.',
+    );
+  }
+
+  // cert() rejects a key whose final line is not newline-terminated.
+  return key.endsWith('\n') ? key : `${key}\n`;
 }
 
 const projectId = readRequired('FIREBASE_PROJECT_ID');
