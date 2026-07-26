@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.next/
+out/
+
+# Secrets — only .env.example belongs in git.
+.env
+.env.local
+.env*.local
+!.env.example
+
+# Firebase service-account keys must never be committed.
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+tsconfig.tsbuildinfo
