@@ -1,0 +1,13 @@
+node_modules
+dist
+*.log
+
+# SQLite database files — recreated on boot from the schema + seed.
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+.env
+.env.local
